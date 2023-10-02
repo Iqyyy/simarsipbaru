@@ -1,36 +1,38 @@
-import { ImSearch } from 'react-icons/im';
-import { Tabel } from '../pages/tabel';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ImSearch } from "react-icons/im";
+import { Tabel } from "../pages/tabel";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookie";
 
 export const SearchTable = () => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const navigate = useNavigate();
-  
-    const handleSearch = (e) => {
-      navigate('/tabel')
-      console.log(searchTerm)
-      return(
-        <Tabel searchTerm={searchTerm} className="d-none d-md-none"/>
-      )
-      
-      
-      // onSearch(query); // Panggil fungsi onSearch dan teruskan nilai pencarian
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearch = (e) => {
+    navigate(
+      `/${Cookies.get(`role`)}/tabel?search=${encodeURIComponent(searchTerm)}`
+    );
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
     }
-    
-    return(
-        <div className="input-group">
-                <input
-                  id="search"
-                  type="text"
-                  placeholder="Cari Arsip"
-                  className="form-control"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <span className="input-group-text">
-                  <ImSearch onClick={handleSearch} />
-                </span> 
-        </div>
-    )
-}
+  };
+  return (
+    <div className="input-group">
+      <input
+        id="search"
+        type="text"
+        placeholder="Cari Arsip"
+        className="form-control"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onKeyUp={handleKeyPress}
+      />
+      <span className="input-group-text" onClick={handleSearch}>
+        <ImSearch />
+      </span>
+    </div>
+  );
+};

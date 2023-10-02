@@ -4,14 +4,30 @@ import "@react-pdf-viewer/core/lib/styles/index.css";
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import * as React from "react";
 import { useEffect, useState } from "react";
+import axios from "axios";
+import Cookies from "js-cookie";
 import Icon from "../images/logopolos.png";
 import { FiCheckCircle } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 
 export const Tambah = () => {
+  const navigate = useNavigate();
+
+  const checkAuthenticated = async () => {
+    const token = Cookies.get("token");
+    if (!token) {
+      // Redirect to login if not authenticated
+      navigate("/login");
+    }
+  };
+
   const [viewPdf, setViewPdf] = useState(null);
   const [catalogValue, setCatalogValue] = useState("");
+  const [inputs, setInputs] = React.useState({});
   const [serialNumberValue, setSerialNumberValue] = useState("");
+  const [file_numberValue, setFileNumberValue] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
   const newplugin = defaultLayoutPlugin();
   const [showModal, setShowModal] = useState(false);
   const [selectedCatalogOption, setSelectedCatalogOption] = useState("");
@@ -30,31 +46,100 @@ export const Tambah = () => {
   const handleModalClose = () => {
     // Close the modal when needed
     setShowModal(false);
+    navigate(`/${Cookies.get(`role`)}/tabel`);
   };
 
   const handleChangePdf = (e) => {
     document.getElementById("pdf-viewer").classList.remove("d-none");
     let selectedFile = e.target.files[0];
+    setSelectedFile(e.target.files[0]);
+    console.log("selectedFile", selectedFile);
     console.log(selectedFile.size);
     if (selectedFile) {
-      let reader = new FileReader();
+      if (selectedFile) {
+        let reader = new FileReader();
+        reader.readAsDataURL(selectedFile);
+        reader.onload = (e) => {
+          setViewPdf(e.target.result);
+        };
+      } else {
+        setViewPdf(null);
+      }
+    } else {
+      console.log("Select File");
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const formDataIdentitas = new FormData(
+      document.getElementById("formIdentitas")
+    );
+    const formDataLokasi = new FormData(document.getElementById("formLokasi"));
+    const archive_code = document
+      .getElementById("archive_code")
+      .textContent.trim()
+      .slice(2);
+
+    const data = {};
+
+    data["archive_code"] = archive_code;
+
+    for (const [key, value] of formDataIdentitas.entries()) {
+      data[key] = value;
+    }
+
+    for (const [key, value] of formDataLokasi.entries()) {
+      data[key] = value;
+    }
+
+    if (selectedFile) {
+      // Read the file as a data URL
+      const reader = new FileReader();
       reader.readAsDataURL(selectedFile);
-      reader.onload = (e) => {
-        setViewPdf(e.target.result);
+
+      reader.onload = () => {
+        const fileData = reader.result.split(",")[1]; // Extract base64 data
+        data["archive_file"] = fileData; // Assign the base64 data to the 'archive_file' property
+
+        // Send the data to the server
+        sendDataToServer(data);
       };
     } else {
-      setViewPdf(null);
+      // If no file selected, send the data without 'archive_file'
+      sendDataToServer(data);
+    }
+  };
+
+  const sendDataToServer = async (data) => {
+    try {
+      const response = await axios.post("http://localhost:9000/addArchive", {
+        token: Cookies.get("token"),
+        data: data,
+      });
+      console.log(response.data);
+      handleModalOpen();
+    } catch (error) {
+      if (error === "ECONNRESET") {
+        // Handle ECONNRESET error
+        console.error("Connection reset by peer.");
+      } else {
+        // Handle other errors
+        console.error("An error occurred:", error);
+      }
     }
   };
 
   useEffect(() => {
     document.getElementById("tambah").classList.add("act");
     document.getElementById("tambah").classList.remove("text-white");
+    checkAuthenticated();
   }, []);
 
   useEffect(() => {
     generateArchiveCode();
-  }, [catalogValue, serialNumberValue]);
+  }, [catalogValue, serialNumberValue, file_numberValue]);
 
   function generateArchiveCode() {
     const archiveCode = `${catalogValue}/${serialNumberValue}`;
@@ -105,9 +190,9 @@ export const Tambah = () => {
   };
 
   const selectConditionOptions = [
-    { value: '1', label: 'Baik' },
-    { value: '2', label: 'Sedang' },
-    { value: '3', label: 'Rusak' },
+    { value: "1", label: "Baik" },
+    { value: "2", label: "Sedang" },
+    { value: "3", label: "Rusak" },
   ];
   const handleSelectConditionChange = (selectedConditionOption) => {
     setSelectedConditionOption(selectedConditionOption);
@@ -115,104 +200,101 @@ export const Tambah = () => {
   };
 
   const selectTypeOptions = [
-    { value:"1", label: 'Berkas' },
-    { value:"2", label: 'Buku' },
-    { value:"3", label : 'Audio'},
-    { value:"4", label : 'Visual'},
-    { value:"5", label : 'Film/Video'},
-    { value:"6", label : 'Kartografi'},
-    { value:"7", label: 'Elektronik'
-    }
+    { value: "1", label: "Berkas" },
+    { value: "2", label: "Buku" },
+    { value: "3", label: "Audio" },
+    { value: "4", label: "Visual" },
+    { value: "5", label: "Film/Video" },
+    { value: "6", label: "Kartografi" },
+    { value: "7", label: "Elektronik" },
   ];
   const handleSelectTypeOptions = (selectedTypeOption) => {
     setSelectedTypeOption(selectedTypeOption);
   };
 
   const selectClassOptions = [
-    { value:"1", label : 'Biasa'},
-    { value:"2", label : 'Rahasia'},
-    { value:"3", label : 'Sangat Rahasia'
-    }
+    { value: "1", label: "Biasa" },
+    { value: "2", label: "Rahasia" },
+    { value: "3", label: "Sangat Rahasia" },
   ];
   const handleSelectClassOptions = (selectedClassOption) => {
     setSelectedClassOption(selectedClassOption);
   };
 
-  const selectBuildingOptions =[
-    { value:"1", label : 'Gedung 1'}
-  ]
+  const selectBuildingOptions = [{ value: "1", label: "Gedung 1" }];
   const handleSelectBuildingOptions = (selectedBuildingOption) => {
     setSelectedBuildingOption(selectedBuildingOption);
   };
 
   const selectRoomOptions = [
-    { value:"1", label :"Ruang 1"},
-    { value:"2", label : "Ruang 2"}
-  ]
+    { value: "1", label: "Ruang 1" },
+    { value: "2", label: "Ruang 2" },
+  ];
   const handleSelectRoomOptions = (selectedRoomOption) => {
     setSelectedRoomOption(selectedRoomOption);
   };
 
   const selectRollopackOptions = [
-    { value:"1", label :"R-1"},
-    { value:"2", label :"R-2"},
-    { value:"3", label :"R-3"},
-    { value:"4", label :"R-4"},
-    { value:"5", label :"R-5"},
-    { value:"6", label :"R-6"},
-    { value:"7", label :"R-7"},
-    { value:"8", label :"R-8"},
-    { value:"9", label :"R-9"},
-    { value:"10", label :"R-10"},
-    { value:"11", label :"R-11"},
-    { value:"12", label :"R-12"},
-    { value:"13", label :"R-13"},
-    { value:"14", label :"R-14"},
-    { value:"15", label :"R-15"},
-    { value:"16", label :"R-16"},
-    { value:"17", label :"R-17"},
-    { value:"18", label :"R-18"},
-    { value:"19", label :"R-19"},
-    { value:"20", label :"R-20"}
-  ]
+    { value: "1", label: "R-1" },
+    { value: "2", label: "R-2" },
+    { value: "3", label: "R-3" },
+    { value: "4", label: "R-4" },
+    { value: "5", label: "R-5" },
+    { value: "6", label: "R-6" },
+    { value: "7", label: "R-7" },
+    { value: "8", label: "R-8" },
+    { value: "9", label: "R-9" },
+    { value: "10", label: "R-10" },
+    { value: "11", label: "R-11" },
+    { value: "12", label: "R-12" },
+    { value: "13", label: "R-13" },
+    { value: "14", label: "R-14" },
+    { value: "15", label: "R-15" },
+    { value: "16", label: "R-16" },
+    { value: "17", label: "R-17" },
+    { value: "18", label: "R-18" },
+    { value: "19", label: "R-19" },
+    { value: "20", label: "R-20" },
+  ];
   const handleSelectRollopackOptions = (selectedRollopackOption) => {
-    setSelectedRollopackOption(selectedRollopackOption)
+    setSelectedRollopackOption(selectedRollopackOption);
   };
 
-  const selectCabinetOptions =[
-    { value:"1", labek: "L1"},
-    { value:"2", label: "L2"},
-    { value:"3", label : "L3"},
-    { value:"4", label :"L4"},
-    { value:"4", label :"L5"}
-  ]
+  const selectCabinetOptions = [
+    { value: "1", labek: "L1" },
+    { value: "2", label: "L2" },
+    { value: "3", label: "L3" },
+    { value: "4", label: "L4" },
+    { value: "4", label: "L5" },
+  ];
   const handelSelectCabinetOptions = (selectedCabinetOption) => {
-    setSelectedCabinetOption(selectedCabinetOption)
+    setSelectedCabinetOption(selectedCabinetOption);
   };
-
-
 
   return (
     <div className="container-fluid">
       <div className="row bg-white m-3 rounded p-3 ">
         <h3>A. Identitas</h3>
-        <form className="">
+        <form id="formIdentitas">
           <ul>
             <li className="mb-3 row">
               <label for="archive_code" class="col-sm-2 col-form-label">
                 Kode Arsip
               </label>
               <div class="col-sm-9 m-2">
-                <span id="archive_code"></span>
+                <span id="archive_code" name="archive_code">
+                  :{" "}
+                </span>
               </div>
             </li>
             <li className="mb-3 row">
-              <label htmlFor="catalog" className="col-sm-2 col-form-label">
-                Indeks Katalog
+              <label for="archive_catalog_id" class="col-sm-2 col-form-label">
+                Indek Katalog
               </label>
-              <div className="col-sm-9">
+              <div class="col-sm-9">
                 <Select
-                  id="catalog"
+                  id="archive_catalog_id"
+                  name="archive_catalog_id"
                   options={selectCatalogOptions}
                   value={selectedCatalogOption}
                   onChange={handleSelectCatalogChange}
@@ -221,93 +303,104 @@ export const Tambah = () => {
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="serial_number" class="col-sm-2 col-form-label">
+              <label
+                for="archive_serial_number"
+                class="col-sm-2 col-form-label"
+              >
                 No Buku
               </label>
-              <div class="col-sm-3 ">
+              <div class="col-sm-3 me-5">
                 <input
-                  type="number"
+                  type="text"
                   className="form-control"
-                  id="serial_number"
+                  id="archive_serial_number"
+                  name="archive_serial_number"
                   placeholder="masukkan no buku"
                   onInput={(e) => setSerialNumberValue(e.target.value)}
                 />
               </div>
-              <label for="file_number" class="col-sm-2 col-form-label ">
+              <label
+                for="archive_file_number"
+                class="col-sm-2 col-form-label ms-4"
+              >
                 No Berkas
               </label>
               <div class="col-sm-3">
                 <input
                   type="text"
                   className="form-control"
-                  id="file_number "
+                  id="archive_file_number"
+                  name="archive_file_number"
                   placeholder="masukkan no berkas"
                 />
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="tittle" class="col-sm-2 col-form-label">
+              <label for="archive_title" class="col-sm-2 col-form-label">
                 Judul
               </label>
               <div class="col-sm-9">
                 <input
                   type="text"
                   className="form-control"
-                  id="tittle"
+                  id="archive_title"
+                  name="archive_title"
                   placeholder="masukkan judul"
                 />
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="Release_date" class="col-sm-2 col-form-label">
-                Tanggal Terbit
+              <label for="archive_release_date" class="col-sm-2 col-form-label">
+                Tanggal Surat
               </label>
               <div class="col-sm-3">
                 <input
                   type="date"
                   className="form-control"
-                  id="Release_date"
+                  id="archive_release_date"
+                  name="archive_release_date"
                   placeholder="masukkan judul"
                 />
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="condition_id" class="col-sm-2 col-form-label">
+              <label for="archive_condition_id" class="col-sm-2 col-form-label">
                 Kondisi Arsip
               </label>
               <div class="col-sm-9">
-                
                 <Select
-                  id="condition_id"
+                  id="archive_condition_id"
+                  name="archive_condition_id"
                   options={selectConditionOptions}
                   value={selectedConditionOption}
                   onChange={handleSelectConditionChange}
                   placeholder="Pilih Kondisi Arsip"
                 />
               </div>
-              
             </li>
             <li className="mb-3 row">
-              <label for="type" class="col-sm-2 col-form-label">
+              <label for="archive_type_id" class="col-sm-2 col-form-label">
                 Jenis Arsip
               </label>
               <div class="col-sm-9">
                 <Select
-                  id="type"
+                  id="archive_type_id"
+                  name="archive_type_id"
                   options={selectTypeOptions}
                   Value={selectedTypeOption}
                   onChange={handleSelectTypeOptions}
                   placeholder="Pilih Jenis Arsip"
                 />
-                  </div>
+              </div>
             </li>
             <li className="mb-3 row">
-              <label for="class" class="col-sm-2 col-form-label">
+              <label for="archive_class_id" class="col-sm-2 col-form-label">
                 Kelas Arsip
               </label>
               <div class="col-sm-9">
                 <Select
-                  id="class"
+                  id="archive_class_id"
+                  name="archive_class_id"
                   options={selectClassOptions}
                   Value={selectedClassOption}
                   onChange={handleSelectClassOptions}
@@ -316,14 +409,15 @@ export const Tambah = () => {
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="agency" class="col-sm-2 col-form-label">
+              <label for="archive_agency" class="col-sm-2 col-form-label">
                 Asal Instansi
               </label>
               <div class="col-sm-9">
                 <input
                   type="text"
                   className="form-control"
-                  id="agency"
+                  id="archive_agency"
+                  name="archive_agency"
                   placeholder="Masukkan Instansi"
                 />
               </div>
@@ -333,27 +427,35 @@ export const Tambah = () => {
       </div>
       <div className="row bg-white m-3 rounded p-3 ">
         <h3>B. Lokasi</h3>
-        <form>
+        <form id="formLokasi">
           <ul>
             <li className="mb-3 row">
-              <label for="building" class="col-sm-2 col-form-label">
+              <label
+                for="archive_loc_building_id"
+                class="col-sm-2 col-form-label"
+              >
                 Gedung
               </label>
               <div class="col-sm-3">
                 <Select
-                  id="Building"
+                  id="archive_loc_building_id"
+                  name="archive_loc_building_id"
                   options={selectBuildingOptions}
                   Value={selectedBuildingOption}
                   onChange={handleSelectBuildingOptions}
                   placeholder="Pilih Gedung"
                 />
               </div>
-              <label for="room" class="col-sm-2 col-form-label ">
+              <label
+                for="archive_loc_room_id"
+                class="col-sm-2 col-form-label ms-4"
+              >
                 Ruang
               </label>
               <div class="col-sm-3">
                 <Select
-                  id="room"
+                  id="archive_loc_room_id"
+                  name="archive_loc_room_id"
                   options={selectRoomOptions}
                   Value={selectedRoomOption}
                   onChange={handleSelectRoomOptions}
@@ -362,55 +464,62 @@ export const Tambah = () => {
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="rollopack" class="col-sm-2 col-form-label">
+              <label
+                for="archive_loc_rollopack_id"
+                class="col-sm-2 col-form-label"
+              >
                 Roll O Pack
               </label>
               <div class="col-sm-9">
                 <Select
-                  id="rollopack"
+                  id="archive_loc_rollopack_id"
+                  name="archive_loc_rollopack_id"
                   options={selectRollopackOptions}
                   Value={selectedRollopackOption}
                   onChange={handleSelectRollopackOptions}
                   placeholder="Pilih roll o pack"
                 />
-                  </div>
+              </div>
             </li>
             <li className="mb-3 row">
-              <label for="cabinet" class="col-sm-2 col-form-label">
+              <label for="archive_loc_cabinet" class="col-sm-2 col-form-label">
                 Lemari
               </label>
               <div class="col-sm-9">
                 <Select
-                  id="cabinet"
+                  id="archive_loc_cabinet"
+                  name="archive_loc_cabinet"
                   options={selectCabinetOptions}
                   Value={selectedCabinetOption}
-                  onChange={handleSelectRollopackOptions}
+                  onChange={handelSelectCabinetOptions}
                   placeholder="Pilih Lemari"
-                  />
+                />
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="rack" class="col-sm-2 col-form-label">
+              <label for="archive_loc_rack" class="col-sm-2 col-form-label">
                 Rak
               </label>
               <div class="col-sm-9">
                 <input
                   type="text"
                   className="form-control"
-                  id="rack"
+                  id="archive_loc_rack"
+                  name="archive_loc_rack"
                   placeholder="Masukkan Rak"
                 />
               </div>
             </li>
             <li className="mb-3 row">
-              <label for="box" class="col-sm-2 col-form-label">
+              <label for="archive_loc_box" class="col-sm-2 col-form-label">
                 Box
               </label>
               <div class="col-sm-9">
                 <input
                   type="text"
                   className="form-control"
-                  id="box"
+                  id="archive_loc_box"
+                  name="archive_loc_box"
                   placeholder="Masukkan Box"
                 />
               </div>
@@ -418,7 +527,7 @@ export const Tambah = () => {
           </ul>
         </form>
         <div>
-          <form>
+          <form id="scan">
             <ul>
               <li className="mb-3 row">
                 <label for="scan" class="col-sm-2 col-form-label">
@@ -430,6 +539,7 @@ export const Tambah = () => {
                     type="file"
                     className="form-control"
                     id="scan"
+                    name="scan"
                     placeholder="Pilih File"
                     accept=".pdf"
                   />
@@ -458,8 +568,8 @@ export const Tambah = () => {
         <input
           class="col-md-1 col-3 me-5 mt-2 mb-2 btn btn-primary"
           type="submit"
+          onClick={handleSubmit}
           value="Submit"
-          onClick={handleModalOpen}
         />
       </div>
       {showModal && (

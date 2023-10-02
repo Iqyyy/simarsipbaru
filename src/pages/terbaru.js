@@ -5,50 +5,37 @@ import { TiArrowSortedDown } from "react-icons/ti";
 import Cookies from "js-cookie";
 import { useLocation } from "react-router-dom";
 
-const Tabel = ({ data }) => {
-  const [isLogin, setIsLogin] = useState(false);
+const Terbaru = ({ data }) => {
   const navigate = useNavigate();
-  const [archiveData, setArchiveData] = useState([]);
+  const [archiveDataBaru, setArchiveDataBaru] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  useEffect(() => {
-    const verify = async () => {
-      let token = Cookies.get(`token`);
-      if (!token) {
-        navigate("/login");
-      } else {
-        try {
-          const response = await axios.post("http://localhost:9000/verify", {
-            token,
-          });
-          if (response.status === 200) {
-            setIsLogin(true);
-            const fetchData = async () => {
-              try {
-                const response = await axios.post("http://localhost:9000/home");
-                setArchiveData(response.data);
-              } catch (error) {
-                console.error("Error", error);
-              }
-            };
+  const checkAuthenticated = async () => {
+    const token = Cookies.get("token");
+    if (!token) {
+      navigate("/login");
+    }
+  };
 
-            fetchData();
-          } else {
-            navigate("/login");
-          }
-        } catch (error) {
-          console.log(error);
-        }
+  useEffect(() => {
+    checkAuthenticated();
+    const fetchData = async () => {
+      try {
+        const response = await axios.post("http://localhost:9000/terbaru");
+        setArchiveDataBaru(response.data);
+      } catch (error) {
+        console.error("Error", error);
       }
     };
-    verify();
-  }, [navigate]);
+
+    fetchData();
+  });
 
   const handleDetail = async (archive_id) => {
     try {
-      navigate(`/${Cookies.get(`role`)}/tabel/detail/${archive_id}`, {
-        state: { archiveData },
+      navigate(`/${Cookies.get(`role`)}/terbaru/detail/${archive_id}`, {
+        state: { archiveDataBaru },
       });
       console.log("archive_id : ", archive_id);
     } catch (error) {
@@ -60,7 +47,7 @@ const Tabel = ({ data }) => {
   const searchParams = new URLSearchParams(location.search);
   const searchTerm = searchParams.get("search");
 
-  const filteredArchiveData = archiveData.filter((archive) =>
+  const filteredArchiveData = archiveDataBaru.filter((archive) =>
     searchTerm
       ? Object.values(archive).some((value) =>
           value && typeof value === "string"
@@ -91,7 +78,7 @@ const Tabel = ({ data }) => {
     <div className="container-fluid">
       <div className="row bg-white m-3 rounded p-3 ">
         <div className="d-flex justify-content-between align-items-center">
-          <h1 className="m-0">Arsip</h1>
+          <h1 className="m-0">Arsip Terbaru</h1>
           <button
             className="btn btn-dark d-flex align-items-center"
             // onClick={handleTambah}
@@ -174,4 +161,4 @@ const Tabel = ({ data }) => {
   );
 };
 
-export { Tabel };
+export { Terbaru };

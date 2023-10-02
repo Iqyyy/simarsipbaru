@@ -126,3 +126,7 @@
   color: #ffffff; /* Change to the desired hover text color */
   cursor: pointer; /* Change to the desired cursor style */
 }
+.red-border {
+  border: 1px solid red;
+  color: red;
+}
